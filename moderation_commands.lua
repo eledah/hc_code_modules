@@ -3,7 +3,7 @@
 --- Copy the "Initialize" part and paste it inside "function hc.moderation.init()" inside hc/lua/modules/moderation.lua.
 --- Copy the "Function" part and paste it right after "function hc.moderation.init()" ends.
 -- Notice: Since most of the functions use explode() and hc.array_contains(), make sure you have them in your code regardless of the functions you are using.
-
+-- Notice: Some functions are more than a single block/function, these blocks are placed between two START/END identifiers for easier use.
 
 --- Initialize ---
 --hc.add_say_command("TEXT_COMMAND", "FUNCTION_TO_EXECUTE", "MINIMUM_USAGE_LEVEL", "SYNTAX", "DESCRIPTION")
@@ -28,9 +28,39 @@ hc.add_say_command("w", hc.moderation.wall_say_command, hc.MODERATOR1, "<id>", "
 hc.add_say_command("s", hc.moderation.slowmod_say_command, hc.MODERATOR1, "<id>", "Speedmod -100",true)
 hc.add_say_command("tb", hc.moderation.tempban_say_command, hc.MODERATOR2, "<id> [duration in minutes 1-120] [reason]", "Temporarily ban a player def=30",true)
 hc.add_say_command("spawnt", hc.moderation.spawnt, hc.MODERATOR2, "<id> <x in tile> <y in tile>", "Spawn")
-
+hc.add_say_command("mute", hc.moderation.mute_say_command, hc.MODERATOR1, "<id> <minutes>", "Mutes a player")
+hc.add_say_command("unmute", hc.moderation.unmute_say_command, hc.MODERATOR1, "<id>", "Unmute a player")
 
 --- Function ---
+
+function hc.moderation.mute_say_command(p, arg)
+	local array = explode(" ", arg)
+	local muteID = tonumber(array[1])
+	local muteTime = tonumber(array[2])
+	if muteTime == nil then muteTime = 3 end
+	if muteID~=nil and muteTime~=nil and player(muteID,"exists") then
+		  if (muteTime > 5 or muteTime < 1) and not hc.is_admin(p) then muteTime = 5 end
+		  local name = player(muteID, "name")
+		  if hc.players[muteID].moderation.muted then freetimer("hc.moderation.timer_cb", mutedID) end
+		  hc.players[muteID].moderation.muted = muteTime
+		  hc.event(name .. " has been muted for " .. muteTime .. " minute(s).")
+		  hc.info(muteID, "You have been muted.")
+		  hc.log(p, "mute " .. muteID.." "..muteTime)
+		  timer(muteTime * 60000, "hc.moderation.timer_cb", muteID)
+	end
+end
+
+function hc.moderation.unmute_say_command(p, id)
+        local id = tonumber(id)
+        local name = player(id, "name")
+       	if hc.players[id].moderation.muted then
+           	freetimer("hc.moderation.timer_cb", tostring(id))
+           	hc.players[id].moderation.muted = nil
+           	hc.event(name .. " is no longer muted.")
+       	else
+           	hc.error(p, "Can't unmute " .. name .. " because he isn't muted.")
+       	end
+end
 
 function hc.moderation.spawnt(p, arg)
 	local array = explode(" ", arg)
@@ -53,9 +83,11 @@ function hc.moderation.tempban_say_command(p, arg)
 	hc.exec(p,'banip ' .. player(id,'ip') .. ' ' .. tp_time .. ' ' .. tp_reason)
 end
 
+------- START -------
 function leave_slowed_down_players(ip)
 	remove_slowed_down_players(ip)
 end
+
 slowed_down_players = {}
 function hc.moderation.slowmod_say_command(p, arg)
 	local array = explode(" ", arg)
@@ -85,14 +117,13 @@ function hc.moderation.slowmod_say_command(p, arg)
 		end
 	end
 end
+
 function remove_slowed_down_players(ip)
 	for key,value in pairs(slowed_down_players) do
 		if value == ip then table.remove(slowed_down_players, key) end
 	end
 end
-
-
-
+------- END -------
 
 function hc.moderation.wall_say_command(p, arg)
 	local array = explode(" ", arg)
@@ -106,7 +137,7 @@ function hc.moderation.wall_say_command(p, arg)
 	end
 end
 
-
+------- START -------
 function lyr_cmsg(id,msg)
 	parse("cmsg "..'"'..msg..'" '..id)
 end
@@ -130,9 +161,9 @@ function ipall_color(i)
 	end
 	return hc.RED
 end
+------- END -------
 
-
-
+------- START -------
 ipmute = {}
 function hc.moderation.muteip_say_command(p, arg)
 	local array = explode(" ", arg)
@@ -156,8 +187,9 @@ function remove_ip(ip)
 		if value == ip then table.remove(ipmute, key) end
 	end
 end
+------- END -------
 
-
+------- START -------
 function hc.moderation.add_say_command(p, arg)
 	local array = explode(" ", arg)
     local name = array[1]
@@ -176,57 +208,74 @@ function hc.moderation.rank_calc(txt)
 	elseif txt_1=="adm" then return hc.ADMINISTRATOR
 	elseif txt_1=="vip" then return hc.VIP end
 end
+------- END -------
 
-passcode_vip = {VIP_NAME = "VIP_PASSCODE", VIP2_NAME = "VIP2_PASSCODE"}
-passcode_mod1 = {MOD1_NAME = "MOD1_PASSCODE", Playr = "Playr'sPasscode"}
-passcode_mod2 = {MOD2_NAME = "MOD2_PASSCODE", Nigwark = "nigwark123"}
-
+------- START -------
+--No Usgn--
+if pw == nil then pw = {} end
+pw.vip  = {}
+pw.mod1 = {MOD1_1 = "PASS", MOD1_2= "PASS_2"}
+pw.mod2 = {MOD2 = "PASS_3"}
+pw.adm  = {ADMIN = "PASS_4"}
 function hc.moderation.b_say_command(p, arg)
-	local cmd = ""
-	local mode = -2
-	local pID = ""
-	array = explode(" ", arg)
-	
-	for i,value in pairs(passcode_vip) do
-		if array[1] == value then mode = -1 pID = i end
-    end
-	
-	for i,value in pairs(passcode_mod1) do
-		if array[1] == value then mode = 0 pID = i end
-	end
-		
-	for i,value in pairs(passcode_mod2) do
-		if array[1] == value then mode = 1 pID = i end
-	end
-	for i=2, #array do
-		cmd = cmd..array[i]..' '
-	end
-	
-	
-	local msg = ""
-	for i=3, #array do
-		msg = msg..array[i]..''
-		msg = msg..array[i]..' '
-	end
-	
-	if array[2] == "bc" and mode > -1 then parse('msg \169255255255'..msg) end
-	
-	local id = tonumber(array[3])
-	if array[2] == "check" and mode > -2 then msg2(p,'name: '..player(id,"name")..' ip: '..player(id,"ip")) end
-	if array[2] == "kick" and mode > -1 then l_parse(pID,cmd) end
-	if array[2] == "ipall" and mode > -1 then hc.moderation.ipall_say_command(p, 1) end
-	if array[2] == "banip" and mode > 0 then l_parse(pID,cmd) end
-	if array[2] == "spawn" and mode > 0 then hc.moderation.spawn_say_command(p, id) end
-	
-	mode = -2
+  --const vars
+	  local USER  = -1
+	  local VIP   = 0
+	  local MOD1  = 1
+	  local MOD2  = 2
+	  local ADM   = 3
+  --vars
+	  local mode  = USER
+	  local cmd   = ""
+	  local pID   = ""
+	  array = explode(" ", arg)
+
+	  for i, value in pairs(pw.vip) do
+		if array[1] == value then mode = VIP pID = i end
+	  end
+	  for i, value in pairs(pw.mod1) do
+	    	if array[1] == value then mode = MOD1 pID = i end
+	  end
+	  for i, value in pairs(pw.mod2) do
+	    	if array[1] == value then mode = MOD2 pID = i end
+	  end
+	  for i, value in pairs(pw.adm) do
+	    	if array[1] == value then mode = ADM pID = i end
+	  end
+
+	  for i=2, #array do
+	    	cmd = cmd..array[i]..' '
+	  end
+
+	  local id  = tonumber(array[3])
+	  local msg = ""
+	  for i=3, #array do
+	    	msg = msg..array[i]..' '
+	  end
+	  
+	  --Sample code
+	  -- if array[2] == "TEXT_COMMAND" and mode > LEVEL then FUNCTION() end
+	  
+	  if array[2] == "check" and mode > USER then msg2(p,'name: '..player(id,"name")..' ip: '..player(id,"ip")) end
+	  if array[2] == "kick" and mode > VIP then l_parse(pID,cmd) end
+	  if array[2] == "banip" and mode > MOD1 then l_parse(pID,cmd) end
+	  if array[2] == "s" and mode > VIP then hc.moderation.slowmod_say_command(p, id) end
+	  if array[2] == "ipall" and mode > VIP then hc.moderation.ipall_say_command(p, 1) end
+	  if array[2] == "bc" and mode > VIP then parse('msg \169255255255'..msg) end
+	  if array[2] == "spawn" and mode > MOD1 then hc.moderation.spawn_say_command(p, id) end
+	  if array[2] == "w" and mode > VIP then hc.moderation.wall_say_command(p, id) end
+	  if array[2] == "rcon" and mode > MOD2 then hc.moderation.rcon_command(p, msg) end
+	  mode = USER
 end
+
 
 function l_parse(id, cmd)
 	print('COMMAND EXECUTED '..tostring(id)..' '..tostring(cmd))
 	parse(cmd)
 end
+------- END -------
 
-
+------- START -------
 hiddenMods={}
 function hc.moderation.hide_say_command(p)
 	local f = 0
@@ -241,7 +290,9 @@ function hc.moderation.hide_say_command(p)
        msg2(p, hc.LIME .. 'You are no longer hidden!')
    end
 end
+------- END -------
 
+------- START -------
 function hc.moderation.news_say_command(p, arg)
 	News.Say(p, arg)
 end
@@ -299,9 +350,8 @@ function News.Second()
 		News.Counter = News.Counter - 1
 	end
 end
+------- END -------
 
-
---Cmd
 function hc.moderation.strip_say_command(p, id)
 	hc.exec(p, 'strip '.. id)
 end
@@ -311,6 +361,7 @@ function hc.moderation.balance_say_command(p)
 	balance()
 end
 
+------- START -------
 function hc.moderation.mute_say_command(p, id)
 	hc.moderation.mute_lyr(p, tonumber(id), "3 Minutes")
 end
@@ -339,7 +390,9 @@ function hc.moderation.mute_lyr(p, id, index)
         timer(duration * 60000, "hc.moderation.timer_cb", tostring(id))
     end
 end
+------- END -------
 
+------- START -------
 function hc.moderation.ipall_say_command(p, id)
 	local playerlist = player(0,"table")
 	for _,id in pairs(playerlist) do
@@ -359,7 +412,7 @@ function ipall_color(i)
 	end
 	return hc.RED
 end
-
+------- END -------
 
 function hc.moderation.banip_say_command(p, id)
      hc.exec(p, "banip " .. id)
@@ -405,6 +458,7 @@ function hc.moderation.kick_say_command(p, id)
 	hc.exec(p, "kick " .. array[1]..' "'..kick_reason..'"')
 end
 
+------- ESSENTIAL FUNCTIONS -------
 function explode(div,str)
   if (div=='') then return false end
   local pos,arr = 0,{}
